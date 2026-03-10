@@ -104,12 +104,19 @@ Send any iMessage to your Mac. The agent interprets it as a Claude Code instruct
 
 | You send | What happens |
 |---|---|
-| `List all running Docker containers` | Runs the instruction via Claude Code, replies with output |
-| `Create a new Next.js project called my-app in ~/Projects` | Claude Code scaffolds the project, replies with confirmation |
+| `List all running Docker containers` | Runs via Claude Code in **normal mode** (safe), replies with output |
 | `What's the disk usage on this machine?` | Claude Code checks and replies |
+| `!sudo Delete all .tmp files in /var` | Runs via Claude Code with **elevated privileges** (no safety checks) |
+| `!sudo Reset the postgres database` | Elevated — Claude executes without confirmation prompts |
 | `!ping` | Agent replies `Pong!` (no Claude involved) |
 | `!status` | Agent replies with PID, uptime, and state |
 | `!stop` | Agent shuts down gracefully |
+
+### Privilege levels
+
+By default, instructions run in **normal mode** — Claude Code applies its own safety checks and will refuse or warn on destructive operations (deleting files, dropping databases, force-pushing, etc.).
+
+Prefix with `!sudo` to run in **elevated mode** — Claude Code runs with `--dangerously-skip-permissions`, executing any instruction without guardrails. Use this only when you explicitly need destructive or unrestricted operations.
 
 ## Architecture
 
@@ -140,7 +147,7 @@ macOS Shortcuts can trigger on incoming messages, but Shortcuts cannot be create
 
 - **iMessage-only.** The database query filters on `m.service = 'iMessage'`, rejecting SMS and RCS messages entirely. This is critical — SMS caller ID is trivially spoofable with off-the-shelf services. iMessage messages are end-to-end encrypted and authenticated through Apple's push notification infrastructure, tied to the sender's Apple ID and device certificates. An attacker cannot spoof an iMessage from your number without compromising your Apple ID.
 - **Only your phone number is processed.** The `AUTHORIZED_HANDLE` in `config.env` is the only number the agent will read and respond to. All other messages are ignored at the database query level.
-- **Claude runs with `--dangerously-skip-permissions`.** This means Claude Code will execute any instruction without confirmation prompts. Only authorize a phone number you fully control.
+- **Privilege separation.** By default, instructions run in Claude Code's normal mode, which applies its own safety checks and refuses destructive operations. Only messages prefixed with `!sudo` run with `--dangerously-skip-permissions`. This limits the blast radius if an attacker somehow gets an iMessage through — they can read and query, but can't delete, overwrite, or execute destructive commands without the explicit escalation prefix.
 - **The message-reader binary has Full Disk Access.** It can read any file on the system. The binary is a simple SQLite reader with no network access and no write operations — it only reads the Messages database.
 - **Messages are not stored.** Processed messages are tracked by row ID only. The message text is not persisted anywhere except the macOS Messages database and the agent log.
 

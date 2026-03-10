@@ -37,16 +37,27 @@ send_imessage() {
 execute_instruction() {
     local instruction="$1"
     local rowid="$2"
+    local privileged="$3"  # "yes" or "no"
 
-    log "EXECUTING: $instruction"
+    log "EXECUTING [privileged=$privileged]: $instruction"
 
     # Send acknowledgment
-    send_imessage "Got it. Working on it..."
+    if [ "$privileged" = "yes" ]; then
+        send_imessage "Got it (elevated). Working on it..."
+    else
+        send_imessage "Got it. Working on it..."
+    fi
 
-    # Execute via Claude CLI in non-interactive mode
+    # Execute via Claude CLI
+    # Default: normal mode (Claude will refuse destructive operations)
+    # !sudo prefix: skip permissions (full access, no guardrails)
     local result
     local exit_code=0
-    result=$(claude --print --dangerously-skip-permissions "$instruction" 2>&1) || exit_code=$?
+    if [ "$privileged" = "yes" ]; then
+        result=$(claude --print --dangerously-skip-permissions "$instruction" 2>&1) || exit_code=$?
+    else
+        result=$(claude --print "$instruction" 2>&1) || exit_code=$?
+    fi
 
     if [ -z "$result" ]; then
         result="Command executed but produced no output."
@@ -111,8 +122,14 @@ while true; do
                         send_imessage "Pong!"
                         echo "$rowid" > "$STATE_FILE"
                         ;;
+                    "!sudo "*)
+                        # Elevated: strip prefix, run with --dangerously-skip-permissions
+                        execute_instruction "${text#!sudo }" "$rowid" "yes"
+                        echo "$rowid" > "$STATE_FILE"
+                        ;;
                     *)
-                        execute_instruction "$text" "$rowid"
+                        # Default: run in normal mode (Claude applies its own safety checks)
+                        execute_instruction "$text" "$rowid" "no"
                         echo "$rowid" > "$STATE_FILE"
                         ;;
                 esac
