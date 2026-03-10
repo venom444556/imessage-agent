@@ -97,10 +97,11 @@ execute_instruction() {
     local result
     local exit_code=0
     local project_dir="${HOME_AGENT_DIR:-$HOME/home-agent}"
+    local model="${CLAUDE_MODEL:-claude-sonnet-4-6}"
     if [ "$privileged" = "yes" ]; then
-        result=$(cd "$project_dir" && perl -e "alarm $EXEC_TIMEOUT; exec @ARGV" -- claude --print --dangerously-skip-permissions "$instruction" 2>&1) || exit_code=$?
+        result=$(cd "$project_dir" && perl -e "alarm $EXEC_TIMEOUT; exec @ARGV" -- claude --print --dangerously-skip-permissions --model "$model" "$instruction" 2>&1) || exit_code=$?
     else
-        result=$(cd "$project_dir" && perl -e "alarm $EXEC_TIMEOUT; exec @ARGV" -- claude --print "$instruction" 2>&1) || exit_code=$?
+        result=$(cd "$project_dir" && perl -e "alarm $EXEC_TIMEOUT; exec @ARGV" -- claude --print --model "$model" "$instruction" 2>&1) || exit_code=$?
     fi
 
     if [ "$exit_code" -eq 142 ] || [ "$exit_code" -eq 124 ]; then
