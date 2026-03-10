@@ -11,8 +11,8 @@ Send iMessage instructions from your phone to a Mac running [Claude Code](https:
 └──────────┘   iMessage    └──────────────┘   stdout   └─────────────┘
 ```
 
-1. A compiled Swift binary (`message-reader`) polls the macOS Messages SQLite database every 5 seconds for new incoming messages from your authorized phone number.
-2. When a new message is found, the agent script passes it to `claude --print --dangerously-skip-permissions` for execution.
+1. A compiled Swift binary (`message-reader`) polls the macOS Messages SQLite database every 5 seconds for new **iMessage-only** messages from your authorized phone number. SMS and RCS are rejected.
+2. When a new message is found, the agent script passes it to `claude --print` for execution. By default, Claude Code runs in **normal mode** with its built-in safety checks. Prefix a message with `!sudo` to escalate to `--dangerously-skip-permissions` for unrestricted execution.
 3. Claude Code's output is sent back to you via iMessage using AppleScript automation.
 
 The agent runs as a macOS LaunchAgent — it starts on login, restarts on crash, and survives reboots.
