@@ -1,0 +1,9 @@
+config.env
+message-reader
+*.log
+.last_rowid
+.agent.lock
+inbox/
+processed/
+*.app/
+com.imessage-agent.plist
