@@ -89,13 +89,13 @@ execute_instruction() {
     local exit_code=0
     local project_dir="${HOME_AGENT_DIR:-$HOME/home-agent}"
     if [ "$privileged" = "yes" ]; then
-        result=$(timeout "$EXEC_TIMEOUT" claude --print --dangerously-skip-permissions --project-dir "$project_dir" "$instruction" 2>&1) || exit_code=$?
+        result=$(perl -e "alarm $EXEC_TIMEOUT; exec @ARGV" -- claude --print --dangerously-skip-permissions --project-dir "$project_dir" "$instruction" 2>&1) || exit_code=$?
     else
-        result=$(timeout "$EXEC_TIMEOUT" claude --print --project-dir "$project_dir" "$instruction" 2>&1) || exit_code=$?
+        result=$(perl -e "alarm $EXEC_TIMEOUT; exec @ARGV" -- claude --print --project-dir "$project_dir" "$instruction" 2>&1) || exit_code=$?
     fi
 
-    if [ "$exit_code" -eq 124 ]; then
-        result="Timed out after ${EXEC_TIMEOUT}s. The instruction was too complex for a single shot. Try breaking it into smaller steps."
+    if [ "$exit_code" -eq 142 ] || [ "$exit_code" -eq 124 ]; then
+        result="Timed out after ${EXEC_TIMEOUT}s. Try breaking it into smaller steps."
         log "TIMEOUT: $instruction"
     elif [ -z "$result" ]; then
         result="Command executed but produced no output."

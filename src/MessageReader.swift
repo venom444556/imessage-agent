@@ -60,7 +60,8 @@ class MessageReader {
         guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else { return messages }
         defer { sqlite3_finalize(stmt) }
 
-        sqlite3_bind_text(stmt, 1, targetHandle, -1, nil)
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_text(stmt, 1, (targetHandle as NSString).utf8String, -1, SQLITE_TRANSIENT)
         sqlite3_bind_int64(stmt, 2, afterRowid)
 
         while sqlite3_step(stmt) == SQLITE_ROW {
