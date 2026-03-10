@@ -124,14 +124,21 @@ execute_instruction() {
     send_long_imessage "$result"
 }
 
-# Ensure only one instance runs
+# Ensure only one instance runs — kill any stale instances first
 if [ -f "$LOCK_FILE" ]; then
     existing_pid=$(cat "$LOCK_FILE")
     if kill -0 "$existing_pid" 2>/dev/null; then
         echo "Agent already running (PID $existing_pid). Exiting."
         exit 1
     fi
+    rm -f "$LOCK_FILE"
 fi
+# Also kill any orphaned agent.sh processes (except ourselves)
+for pid in $(pgrep -f "agent\\.sh" 2>/dev/null); do
+    if [ "$pid" != "$$" ]; then
+        kill "$pid" 2>/dev/null || true
+    fi
+done
 echo $$ > "$LOCK_FILE"
 trap 'rm -f "$LOCK_FILE"' EXIT
 
