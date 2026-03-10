@@ -55,6 +55,19 @@ fi
 
 # Step 4: Generate the LaunchAgent plist with correct paths
 echo "[4/5] Installing LaunchAgent..."
+
+# Detect claude CLI location and build PATH
+CLAUDE_BIN=$(which claude 2>/dev/null)
+if [ -z "$CLAUDE_BIN" ]; then
+    echo "  ✗ claude CLI not found on PATH."
+    echo "    Install it: npm install -g @anthropic-ai/claude-code"
+    echo "    Then run this setup script again."
+    exit 1
+fi
+CLAUDE_DIR=$(dirname "$CLAUDE_BIN")
+AGENT_PATH="$CLAUDE_DIR:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+echo "  Found claude at $CLAUDE_BIN"
+
 cat > "$PLIST_SRC" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -79,7 +92,7 @@ cat > "$PLIST_SRC" << PLIST
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <string>$AGENT_PATH</string>
     </dict>
 </dict>
 </plist>
