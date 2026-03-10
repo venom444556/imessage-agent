@@ -53,10 +53,11 @@ execute_instruction() {
     # !sudo prefix: skip permissions (full access, no guardrails)
     local result
     local exit_code=0
+    local project_dir="${HOME}/home-agent"
     if [ "$privileged" = "yes" ]; then
-        result=$(claude --print --dangerously-skip-permissions "$instruction" 2>&1) || exit_code=$?
+        result=$(claude --print --dangerously-skip-permissions --project-dir "$project_dir" "$instruction" 2>&1) || exit_code=$?
     else
-        result=$(claude --print "$instruction" 2>&1) || exit_code=$?
+        result=$(claude --print --project-dir "$project_dir" "$instruction" 2>&1) || exit_code=$?
     fi
 
     if [ -z "$result" ]; then

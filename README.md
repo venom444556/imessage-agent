@@ -121,15 +121,29 @@ Prefix with `!sudo` to run in **elevated mode** — Claude Code runs with `--dan
 ## Architecture
 
 ```
-imessage-agent/
+imessage-agent/                        # This repo
 ├── src/
-│   └── MessageReader.swift    # Swift binary — reads Messages SQLite DB
-├── agent.sh                   # Main loop — polls, dispatches, replies
-├── setup.sh                   # One-time setup — compile, permissions, LaunchAgent
-├── config.env.example         # Configuration template
-├── config.env                 # Your configuration (git-ignored)
+│   └── MessageReader.swift            # Swift binary — reads Messages SQLite DB
+├── agent.sh                           # Main loop — polls, dispatches, replies
+├── setup.sh                           # One-time setup — compile, permissions, LaunchAgent
+├── config.env.example                 # Configuration template
+├── config.env                         # Your configuration (git-ignored)
 └── .gitignore
+
+~/home-agent/                          # Claude Code project directory (separate)
+├── CLAUDE.md                          # Agent persona and response guidelines
+└── .claude/
+    └── settings.json                  # Permissions and MCP server access
 ```
+
+### The home-agent directory
+
+The agent runs Claude Code with `--project-dir ~/home-agent`. This directory contains:
+
+- **`CLAUDE.md`** — Tells Claude it's running as a headless home agent, to keep responses concise and mobile-readable, and to never output secrets (since responses go over iMessage).
+- **`.claude/settings.json`** — Pre-approves permissions for all tools and MCP servers so Claude can execute without interactive prompts. This is where you control what Claude has access to: Gmail, Notion, GitHub, Playwright, StoryFlow, Figma, web search, filesystem, and shell.
+
+To add or remove capabilities, edit `~/home-agent/.claude/settings.json`. The global `~/.claude/.mcp.json` and plugin configs are inherited automatically.
 
 ### Why Swift for the reader?
 
@@ -150,6 +164,7 @@ macOS Shortcuts can trigger on incoming messages, but Shortcuts cannot be create
 - **Privilege separation.** By default, instructions run in Claude Code's normal mode, which applies its own safety checks and refuses destructive operations. Only messages prefixed with `!sudo` run with `--dangerously-skip-permissions`. This limits the blast radius if an attacker somehow gets an iMessage through — they can read and query, but can't delete, overwrite, or execute destructive commands without the explicit escalation prefix.
 - **The message-reader binary has Full Disk Access.** It can read any file on the system. The binary is a simple SQLite reader with no network access and no write operations — it only reads the Messages database.
 - **Messages are not stored.** Processed messages are tracked by row ID only. The message text is not persisted anywhere except the macOS Messages database and the agent log.
+- **No secrets in responses.** The CLAUDE.md in `~/home-agent` instructs Claude to never output API keys, passwords, or tokens in responses, since they're delivered over iMessage.
 
 ## Troubleshooting
 
