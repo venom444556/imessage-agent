@@ -165,6 +165,8 @@ macOS protects `~/Library/Messages/chat.db` with TCC (Transparency, Consent, and
 
 The Messages.app AppleScript interface still supports `send` commands. This goes through Apple Events (inter-process communication), not the database, so it works without FDA. Reading messages via AppleScript was removed in recent macOS versions, which is why the reader uses the database directly.
 
+Claude Code's output frequently contains quotes, em-dashes, markdown, dollar signs, and other characters that break AppleScript string literals. The agent avoids this entirely by writing the response to a temp file and having AppleScript read it back with `read file as «class utf8»`. This handles any content safely — no escaping needed.
+
 ### Why not Shortcuts?
 
 macOS Shortcuts can trigger on incoming messages, but Shortcuts cannot be created programmatically via the CLI — only run. This solution is fully automatable with no GUI interaction required after the one-time FDA grant.
