@@ -31,12 +31,18 @@ log() {
 
 send_imessage() {
     local message="$1"
-    osascript -e "
-        tell application \"Messages\"
-            set targetBuddy to buddy \"$AUTHORIZED_HANDLE\" of account id \"$IMESSAGE_ACCOUNT\"
-            send $(printf '%s' "$message" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))') to targetBuddy
+    local tmpfile
+    tmpfile=$(mktemp)
+    printf '%s' "$message" > "$tmpfile"
+    osascript << APPLESCRIPT 2>>"$LOG_FILE"
+        set msgFile to POSIX file "$tmpfile"
+        set msgText to read msgFile as «class utf8»
+        tell application "Messages"
+            set targetBuddy to buddy "$AUTHORIZED_HANDLE" of account id "$IMESSAGE_ACCOUNT"
+            send msgText to targetBuddy
         end tell
-    " 2>>"$LOG_FILE"
+APPLESCRIPT
+    rm -f "$tmpfile"
 }
 
 send_long_imessage() {
