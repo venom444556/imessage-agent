@@ -53,6 +53,7 @@ class MessageReader {
             FROM message m
             LEFT JOIN handle h ON m.handle_id = h.ROWID
             WHERE h.id = ? AND m.ROWID > ? AND m.is_from_me = 0 AND m.text IS NOT NULL
+                AND m.service = 'iMessage'
             ORDER BY m.date ASC
         """
 

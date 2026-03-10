@@ -138,6 +138,7 @@ macOS Shortcuts can trigger on incoming messages, but Shortcuts cannot be create
 
 ## Security considerations
 
+- **iMessage-only.** The database query filters on `m.service = 'iMessage'`, rejecting SMS and RCS messages entirely. This is critical — SMS caller ID is trivially spoofable with off-the-shelf services. iMessage messages are end-to-end encrypted and authenticated through Apple's push notification infrastructure, tied to the sender's Apple ID and device certificates. An attacker cannot spoof an iMessage from your number without compromising your Apple ID.
 - **Only your phone number is processed.** The `AUTHORIZED_HANDLE` in `config.env` is the only number the agent will read and respond to. All other messages are ignored at the database query level.
 - **Claude runs with `--dangerously-skip-permissions`.** This means Claude Code will execute any instruction without confirmation prompts. Only authorize a phone number you fully control.
 - **The message-reader binary has Full Disk Access.** It can read any file on the system. The binary is a simple SQLite reader with no network access and no write operations — it only reads the Messages database.
