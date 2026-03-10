@@ -17,6 +17,18 @@ Send iMessage instructions from your phone to a Mac running [Claude Code](https:
 
 The agent runs as a macOS LaunchAgent — it starts on login, restarts on crash, and survives reboots.
 
+## Why this over Claude Code's built-in remote features
+
+Claude Code has a terminal interface. It's great when you're at a desk. This is for when you're not.
+
+- **Zero app switching.** You're already in iMessage. No browser, no terminal app, no SSH client. Text a command, get a result. It fits into the same flow as texting a coworker.
+- **Works from anywhere with cell signal.** No VPN, no SSH tunnel, no port forwarding. iMessage handles the transport — E2E encrypted, works on cellular, works on airplane Wi-Fi.
+- **Full Mac access, not just a shell.** Because Claude Code is the executor (not a raw shell), you get natural language instructions. "Check if CI is passing" works. "Summarize my unread email" works. "Find that file I was working on yesterday" works. You don't have to remember exact commands on a phone keyboard.
+- **Persistent and hands-off.** It's a LaunchAgent. You don't start it, you don't manage it, you don't think about it. The Mac is always listening. Send a text at 2am and the response is waiting when you look at your phone.
+- **Integrates with everything Claude Code touches.** Gmail, Notion, GitHub, Playwright, Figma — whatever MCP servers you've configured. It's not a limited remote shell. It's your entire Claude Code environment, reachable by text.
+
+The closest comparison is SSH + tmux, but that requires a terminal app, exact commands, and managing connections. This is "text your Mac in English and it does the thing."
+
 ## Prerequisites
 
 - **macOS 14+** (tested on macOS 26 Tahoe)
@@ -157,14 +169,53 @@ The Messages.app AppleScript interface still supports `send` commands. This goes
 
 macOS Shortcuts can trigger on incoming messages, but Shortcuts cannot be created programmatically via the CLI — only run. This solution is fully automatable with no GUI interaction required after the one-time FDA grant.
 
-## Security considerations
+## Security model
 
-- **iMessage-only.** The database query filters on `m.service = 'iMessage'`, rejecting SMS and RCS messages entirely. This is critical — SMS caller ID is trivially spoofable with off-the-shelf services. iMessage messages are end-to-end encrypted and authenticated through Apple's push notification infrastructure, tied to the sender's Apple ID and device certificates. An attacker cannot spoof an iMessage from your number without compromising your Apple ID.
-- **Only your phone number is processed.** The `AUTHORIZED_HANDLE` in `config.env` is the only number the agent will read and respond to. All other messages are ignored at the database query level.
-- **Privilege separation.** By default, instructions run in Claude Code's normal mode, which applies its own safety checks and refuses destructive operations. Only messages prefixed with `!sudo` run with `--dangerously-skip-permissions`. This limits the blast radius if an attacker somehow gets an iMessage through — they can read and query, but can't delete, overwrite, or execute destructive commands without the explicit escalation prefix.
-- **The message-reader binary has Full Disk Access.** It can read any file on the system. The binary is a simple SQLite reader with no network access and no write operations — it only reads the Messages database.
+### Defense in depth
+
+This system has three security layers. Each one narrows the attack surface independently.
+
+**Layer 1: iMessage-only (transport authentication)**
+
+The database query filters on `m.service = 'iMessage'`, rejecting SMS and RCS messages at the query level. This is the most important layer. SMS caller ID is trivially spoofable — there are commercial services that let anyone send an SMS "from" any number for a few dollars. iMessage is fundamentally different:
+
+- Messages are E2E encrypted using per-device keys
+- Sender identity is authenticated through Apple's Identity Service (IDS)
+- Each device registers with Apple using device-specific certificates tied to the sender's Apple ID
+- The `service` column in `chat.db` is set by the Messages framework at delivery time based on the actual transport used — it cannot be forged by the sender
+
+To send an iMessage "from" your number, an attacker would need to compromise your Apple ID and register a device against it. SMS spoofing is a $5 commodity service. iMessage spoofing is an Apple ID takeover.
+
+**Layer 2: Single authorized handle (identity pinning)**
+
+The `AUTHORIZED_HANDLE` in `config.env` is the only phone number the agent will read from. All other messages — from any other number, from any other Apple ID — are filtered out at the SQL query level before the agent script ever sees them. This is not a regex or application-level check; it's a `WHERE` clause. Messages from unauthorized senders never enter the processing pipeline.
+
+**Layer 3: Privilege separation (blast radius control)**
+
+By default, instructions run in Claude Code's normal mode, which applies its own safety checks and refuses destructive operations (deleting files, dropping databases, force-pushing, etc.). Only messages explicitly prefixed with `!sudo` run with `--dangerously-skip-permissions`.
+
+If an attacker somehow got through layers 1 and 2, they could ask Claude to read files or run queries, but they could not execute destructive commands. Escalation to `!sudo` requires knowing the prefix exists and using it — it's not the default.
+
+### Realistic threat assessment
+
+The only scenario where this system is compromised is an **Apple ID takeover** — an attacker who has your Apple ID credentials, has passed 2FA, and has registered a device to your account. At that point, they can send iMessages as you.
+
+But if someone has your Apple ID, they also have:
+- Your iCloud Keychain (every saved password)
+- Your iCloud Drive (every synced document)
+- Your Photos library
+- Your email (if using iCloud Mail)
+- Find My (physical location of every device)
+- The ability to remotely wipe your devices
+
+A compromised Apple ID is a total-compromise scenario. The iMessage agent is the least of your concerns. Secure your Apple ID (strong password, hardware security key for 2FA, recovery key) and you've secured this agent as a side effect.
+
+### Additional safeguards
+
+- **Execution timeout.** Instructions that run longer than 5 minutes (configurable via `EXEC_TIMEOUT`) are killed. This prevents a malformed or adversarial prompt from hanging the agent indefinitely.
+- **No secrets in responses.** The `CLAUDE.md` in `~/home-agent` instructs Claude to never output API keys, passwords, or tokens in responses, since they're delivered over iMessage.
+- **The message-reader binary has Full Disk Access.** It can read any file on the system, but the binary is a simple read-only SQLite reader with no network access and no write operations. The source is in `src/MessageReader.swift` — it's 90 lines, fully auditable.
 - **Messages are not stored.** Processed messages are tracked by row ID only. The message text is not persisted anywhere except the macOS Messages database and the agent log.
-- **No secrets in responses.** The CLAUDE.md in `~/home-agent` instructs Claude to never output API keys, passwords, or tokens in responses, since they're delivered over iMessage.
 
 ## Troubleshooting
 
