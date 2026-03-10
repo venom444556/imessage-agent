@@ -30,7 +30,7 @@ The agent runs as a macOS LaunchAgent — it starts on login, restarts on crash,
 ### 1. Clone and configure
 
 ```bash
-git clone <your-repo-url>
+git clone git@github.com:venom444556/imessage-agent.git
 cd imessage-agent
 cp config.env.example config.env
 ```
