@@ -150,7 +150,7 @@ imessage-agent/                        # This repo
 
 ### The home-agent directory
 
-The setup script copies `home-agent/` to `~/home-agent` (or wherever `HOME_AGENT_DIR` points). The agent runs Claude Code with `--project-dir ~/home-agent`. This directory contains:
+The setup script copies `home-agent/` to `~/home-agent` (or wherever `HOME_AGENT_DIR` points). The agent `cd`s into this directory before invoking `claude --print`, so Claude Code automatically picks up the project config. This directory contains:
 
 - **`CLAUDE.md`** — Tells Claude it's running as a headless home agent, to keep responses concise and mobile-readable, and to never output secrets (since responses go over iMessage).
 - **`.claude/settings.json`** — Pre-approves permissions for tools so Claude can execute without interactive prompts. The template includes filesystem, shell, and web access. Add your MCP server permissions here (Gmail, Notion, GitHub, etc.).
