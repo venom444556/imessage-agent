@@ -103,6 +103,8 @@ if args.count > 1 && args[1] == "latest" {
     let afterRowid = args.count > 1 ? Int64(args[1]) ?? 0 : 0
     let messages = reader.getNewMessages(afterRowid: afterRowid)
     for msg in messages {
-        print("\(msg.rowid)|\(msg.text)")
+        // Replace newlines with spaces so each message stays on one output line
+        let safeText = msg.text.replacingOccurrences(of: "\n", with: " ").replacingOccurrences(of: "\r", with: "")
+        print("\(msg.rowid)|\(safeText)")
     }
 }

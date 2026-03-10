@@ -34,7 +34,7 @@ send_imessage() {
     local tmpfile
     tmpfile=$(mktemp)
     printf '%s' "$message" > "$tmpfile"
-    osascript << APPLESCRIPT 2>>"$LOG_FILE"
+    osascript << APPLESCRIPT 2>>"$LOG_FILE" || log "WARNING: Failed to send iMessage"
         set msgFile to POSIX file "$tmpfile"
         set msgText to read msgFile as «class utf8»
         tell application "Messages"
@@ -127,6 +127,13 @@ if [ -f "$LOCK_FILE" ]; then
 fi
 echo $$ > "$LOCK_FILE"
 trap 'rm -f "$LOCK_FILE"' EXIT
+
+# Verify home-agent directory exists
+HOME_AGENT="${HOME_AGENT_DIR:-$HOME/home-agent}"
+if [ ! -d "$HOME_AGENT" ]; then
+    echo "ERROR: Home agent directory not found at $HOME_AGENT. Run setup.sh first."
+    exit 1
+fi
 
 # Initialize state - get current latest rowid so we only process NEW messages
 if [ ! -f "$STATE_FILE" ]; then
