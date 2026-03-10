@@ -15,15 +15,28 @@ if [ ! -f "$AGENT_DIR/config.env" ]; then
     echo "    Copy config.env.example to config.env and fill in your values first."
     exit 1
 fi
-echo "[0/4] Config found."
+source "$AGENT_DIR/config.env"
+echo "[0/5] Config found."
 
-# Step 1: Compile the message reader
-echo "[1/4] Compiling message reader..."
+# Step 1: Install home-agent project directory
+HOME_AGENT_DIR="${HOME_AGENT_DIR:-$HOME/home-agent}"
+echo "[1/5] Setting up home-agent directory at $HOME_AGENT_DIR..."
+if [ -d "$HOME_AGENT_DIR" ]; then
+    echo "  ✓ Already exists (not overwriting)"
+else
+    cp -r "$AGENT_DIR/home-agent" "$HOME_AGENT_DIR"
+    echo "  ✓ Installed"
+    echo "    Edit $HOME_AGENT_DIR/CLAUDE.md to customize agent behavior"
+    echo "    Edit $HOME_AGENT_DIR/.claude/settings.json to add MCP server permissions"
+fi
+
+# Step 2: Compile the message reader
+echo "[2/5] Compiling message reader..."
 swiftc -o "$AGENT_DIR/message-reader" "$AGENT_DIR/src/MessageReader.swift" -lsqlite3 2>&1
 echo "  ✓ Compiled"
 
-# Step 2: Check if message-reader can access the DB
-echo "[2/4] Testing database access..."
+# Step 3: Check if message-reader can access the DB
+echo "[3/5] Testing database access..."
 if "$AGENT_DIR/message-reader" latest 2>/dev/null | grep -qE '^[0-9]+$'; then
     echo "  ✓ Database access OK"
 else
@@ -40,8 +53,8 @@ else
     exit 1
 fi
 
-# Step 3: Generate the LaunchAgent plist with correct paths
-echo "[3/4] Installing LaunchAgent..."
+# Step 4: Generate the LaunchAgent plist with correct paths
+echo "[4/5] Installing LaunchAgent..."
 cat > "$PLIST_SRC" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -75,8 +88,8 @@ mkdir -p "$HOME/Library/LaunchAgents"
 cp "$PLIST_SRC" "$PLIST_DST"
 echo "  ✓ Installed to $PLIST_DST"
 
-# Step 4: Load and start
-echo "[4/4] Starting agent..."
+# Step 5: Load and start
+echo "[5/5] Starting agent..."
 launchctl bootout "gui/$(id -u)" "$PLIST_DST" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST_DST"
 echo "  ✓ Agent started"
@@ -86,7 +99,8 @@ echo "=== Setup Complete ==="
 echo "The iMessage Agent is now running and will start automatically on login."
 echo ""
 echo "Commands you can send via iMessage to your Mac:"
-echo "  !ping   - Check if agent is alive"
-echo "  !status - Get agent status"
-echo "  !stop   - Shut down the agent"
-echo "  Anything else - Executed as a Claude Code instruction on the Mac"
+echo "  !ping        - Check if agent is alive"
+echo "  !status      - Get agent status"
+echo "  !stop        - Shut down the agent"
+echo "  !sudo <cmd>  - Execute with elevated privileges (no safety checks)"
+echo "  Anything else - Executed as a Claude Code instruction (normal mode)"

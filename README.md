@@ -124,24 +124,24 @@ Prefix with `!sudo` to run in **elevated mode** — Claude Code runs with `--dan
 imessage-agent/                        # This repo
 ├── src/
 │   └── MessageReader.swift            # Swift binary — reads Messages SQLite DB
+├── home-agent/                        # Template — copied to ~/home-agent on setup
+│   ├── CLAUDE.md                      # Agent persona and response guidelines
+│   └── .claude/
+│       └── settings.json              # Permissions and MCP server access
 ├── agent.sh                           # Main loop — polls, dispatches, replies
 ├── setup.sh                           # One-time setup — compile, permissions, LaunchAgent
 ├── config.env.example                 # Configuration template
 ├── config.env                         # Your configuration (git-ignored)
+├── LICENSE                            # MIT
 └── .gitignore
-
-~/home-agent/                          # Claude Code project directory (separate)
-├── CLAUDE.md                          # Agent persona and response guidelines
-└── .claude/
-    └── settings.json                  # Permissions and MCP server access
 ```
 
 ### The home-agent directory
 
-The agent runs Claude Code with `--project-dir ~/home-agent`. This directory contains:
+The setup script copies `home-agent/` to `~/home-agent` (or wherever `HOME_AGENT_DIR` points). The agent runs Claude Code with `--project-dir ~/home-agent`. This directory contains:
 
 - **`CLAUDE.md`** — Tells Claude it's running as a headless home agent, to keep responses concise and mobile-readable, and to never output secrets (since responses go over iMessage).
-- **`.claude/settings.json`** — Pre-approves permissions for all tools and MCP servers so Claude can execute without interactive prompts. This is where you control what Claude has access to: Gmail, Notion, GitHub, Playwright, StoryFlow, Figma, web search, filesystem, and shell.
+- **`.claude/settings.json`** — Pre-approves permissions for tools so Claude can execute without interactive prompts. The template includes filesystem, shell, and web access. Add your MCP server permissions here (Gmail, Notion, GitHub, etc.).
 
 To add or remove capabilities, edit `~/home-agent/.claude/settings.json`. The global `~/.claude/.mcp.json` and plugin configs are inherited automatically.
 

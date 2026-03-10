@@ -16,22 +16,56 @@ if [ ! -f "$CONFIG_FILE" ]; then
 fi
 source "$CONFIG_FILE"
 
+# Execution timeout (default: 5 minutes)
+EXEC_TIMEOUT="${EXEC_TIMEOUT:-300}"
+
+# iMessage max chunk size (leave room for overhead)
+MAX_CHUNK=15000
+
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
 }
 
 send_imessage() {
     local message="$1"
-    # Truncate very long messages for iMessage (limit ~20000 chars)
-    if [ ${#message} -gt 19000 ]; then
-        message="${message:0:19000}... [truncated]"
-    fi
     osascript -e "
         tell application \"Messages\"
             set targetBuddy to buddy \"$AUTHORIZED_HANDLE\" of account id \"$IMESSAGE_ACCOUNT\"
             send $(printf '%s' "$message" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))') to targetBuddy
         end tell
     " 2>>"$LOG_FILE"
+}
+
+send_long_imessage() {
+    local message="$1"
+    local total=${#message}
+
+    if [ "$total" -le "$MAX_CHUNK" ]; then
+        send_imessage "$message"
+        return
+    fi
+
+    # Split into chunks on line boundaries where possible
+    local offset=0
+    local part=1
+    local total_parts=$(( (total + MAX_CHUNK - 1) / MAX_CHUNK ))
+
+    while [ "$offset" -lt "$total" ]; do
+        local chunk="${message:$offset:$MAX_CHUNK}"
+
+        # Try to break at the last newline within the chunk
+        if [ "$((offset + MAX_CHUNK))" -lt "$total" ]; then
+            local last_newline="${chunk%$'\n'*}"
+            if [ ${#last_newline} -gt $((MAX_CHUNK / 2)) ]; then
+                chunk="$last_newline"
+            fi
+        fi
+
+        send_imessage "[$part/$total_parts] $chunk"
+        offset=$((offset + ${#chunk}))
+        part=$((part + 1))
+        sleep 1  # Brief pause between chunks to maintain order
+    done
 }
 
 execute_instruction() {
@@ -48,26 +82,29 @@ execute_instruction() {
         send_imessage "Got it. Working on it..."
     fi
 
-    # Execute via Claude CLI
+    # Execute via Claude CLI with timeout
     # Default: normal mode (Claude will refuse destructive operations)
     # !sudo prefix: skip permissions (full access, no guardrails)
     local result
     local exit_code=0
-    local project_dir="${HOME}/home-agent"
+    local project_dir="${HOME_AGENT_DIR:-$HOME/home-agent}"
     if [ "$privileged" = "yes" ]; then
-        result=$(claude --print --dangerously-skip-permissions --project-dir "$project_dir" "$instruction" 2>&1) || exit_code=$?
+        result=$(timeout "$EXEC_TIMEOUT" claude --print --dangerously-skip-permissions --project-dir "$project_dir" "$instruction" 2>&1) || exit_code=$?
     else
-        result=$(claude --print --project-dir "$project_dir" "$instruction" 2>&1) || exit_code=$?
+        result=$(timeout "$EXEC_TIMEOUT" claude --print --project-dir "$project_dir" "$instruction" 2>&1) || exit_code=$?
     fi
 
-    if [ -z "$result" ]; then
+    if [ "$exit_code" -eq 124 ]; then
+        result="Timed out after ${EXEC_TIMEOUT}s. The instruction was too complex for a single shot. Try breaking it into smaller steps."
+        log "TIMEOUT: $instruction"
+    elif [ -z "$result" ]; then
         result="Command executed but produced no output."
     fi
 
     log "RESULT: ${result:0:200}..."
 
-    # Send result back via iMessage
-    send_imessage "$result"
+    # Send result back via iMessage (split if needed)
+    send_long_imessage "$result"
 }
 
 # Ensure only one instance runs
