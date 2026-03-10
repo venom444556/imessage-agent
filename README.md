@@ -122,6 +122,7 @@ Send any iMessage to your Mac. The agent interprets it as a Claude Code instruct
 | `!sudo Reset the postgres database` | Elevated — Claude executes without confirmation prompts |
 | `!ping` | Agent replies `Pong!` (no Claude involved) |
 | `!status` | Agent replies with PID, uptime, and state |
+| `!new` | Resets conversation history — next message starts fresh |
 | `!stop` | Agent shuts down gracefully |
 
 ### Privilege levels
@@ -129,6 +130,12 @@ Send any iMessage to your Mac. The agent interprets it as a Claude Code instruct
 By default, instructions run in **normal mode** — Claude Code applies its own safety checks and will refuse or warn on destructive operations (deleting files, dropping databases, force-pushing, etc.).
 
 Prefix with `!sudo` to run in **elevated mode** — Claude Code runs with `--dangerously-skip-permissions`, executing any instruction without guardrails. Use this only when you explicitly need destructive or unrestricted operations.
+
+### Conversation history
+
+The agent maintains conversation context between messages using Claude Code's `--continue` flag. This means follow-up messages like "now do the same for the other project" or "what was that DUNS number again?" work naturally — Claude remembers what you've been talking about.
+
+Send `!new` to reset the conversation and start fresh. The agent also starts a fresh session on reboot or restart.
 
 ## Architecture
 

@@ -92,17 +92,24 @@ execute_instruction() {
     fi
 
     # Execute via Claude CLI with timeout
+    # Uses --continue to maintain conversation history across messages
     # Default: normal mode (Claude will refuse destructive operations)
     # !sudo prefix: skip permissions (full access, no guardrails)
     local result
     local exit_code=0
     local project_dir="${HOME_AGENT_DIR:-$HOME/home-agent}"
     local model="${CLAUDE_MODEL:-claude-sonnet-4-6}"
-    if [ "$privileged" = "yes" ]; then
-        result=$(cd "$project_dir" && perl -e "alarm $EXEC_TIMEOUT; exec @ARGV" -- claude --print --dangerously-skip-permissions --model "$model" "$instruction" 2>&1) || exit_code=$?
-    else
-        result=$(cd "$project_dir" && perl -e "alarm $EXEC_TIMEOUT; exec @ARGV" -- claude --print --model "$model" "$instruction" 2>&1) || exit_code=$?
+    local continue_flag=""
+    if [ -f "$AGENT_DIR/.has_session" ]; then
+        continue_flag="--continue"
     fi
+    if [ "$privileged" = "yes" ]; then
+        result=$(cd "$project_dir" && perl -e "alarm $EXEC_TIMEOUT; exec @ARGV" -- claude --print --dangerously-skip-permissions --model "$model" $continue_flag "$instruction" 2>&1) || exit_code=$?
+    else
+        result=$(cd "$project_dir" && perl -e "alarm $EXEC_TIMEOUT; exec @ARGV" -- claude --print --model "$model" $continue_flag "$instruction" 2>&1) || exit_code=$?
+    fi
+    # Mark that a session exists for future --continue calls
+    touch "$AGENT_DIR/.has_session"
 
     if [ "$exit_code" -eq 142 ] || [ "$exit_code" -eq 124 ]; then
         result="Timed out after ${EXEC_TIMEOUT}s. Try breaking it into smaller steps."
@@ -175,6 +182,12 @@ while true; do
                         ;;
                     "!ping")
                         send_imessage "Pong!"
+                        echo "$rowid" > "$STATE_FILE"
+                        ;;
+                    "!new"|"!reset")
+                        rm -f "$AGENT_DIR/.has_session"
+                        log "Session reset."
+                        send_imessage "Conversation reset. Next message starts a fresh session."
                         echo "$rowid" > "$STATE_FILE"
                         ;;
                     "!sudo "*)

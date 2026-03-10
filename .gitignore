@@ -3,6 +3,7 @@ message-reader
 *.log
 .last_rowid
 .agent.lock
+.has_session
 inbox/
 processed/
 *.app/
